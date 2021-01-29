@@ -11,17 +11,19 @@ essential
 
 * enemy spawning and move /
 
-* use lightning turret to avoid bullet maths
+* use lightning turret to avoid bullet maths /
 
 * turrets use sprites and can animate to face enemies /
 
 * turrets can shoot at enemies /
 
-* fix bullet speed slowing down as they approach enemy
-
-* each enemy has a health value and on collision bullets take away health
+* each enemy has a health value and on collision bullets take away health /
 
 * enemy path finding to the goal
+
+* bullet are off by half their width
+
+* fix bullet speed slowing down as they approach enemy
 
 non-essential
 
@@ -320,23 +322,39 @@ const renderEnemies = () => {
 
 const renderBullets = () => {
   bullets.forEach( (bullet) => {
-     //rotate the canvas to draw the rotated bullet
-     ctx.translate(bullet.pos[0], bullet.pos[1]);
-     ctx.rotate(bullet.rotation);
-     ctx.translate(-(bullet.pos[0]), -(bullet.pos[1]));
+    switch (bullet.type){
+      case 4:
+        //rotate the canvas to draw the rotated bullet
+        ctx.translate(bullet.pos[0], bullet.pos[1]);
+        ctx.rotate(bullet.rotation);
+        ctx.translate(-(bullet.pos[0]), -(bullet.pos[1]));
 
-    ctx.fillStyle = 'yellow';
-    ctx.fillRect(bullet.pos[0], bullet.pos[1], 10, 5 );
+        ctx.fillStyle = 'rgba(255, 255, 0, '+bullet.transparency+')';
+        ctx.fillRect(bullet.pos[0], bullet.pos[1], dist_between_points(bullet.pos,bullet.target.pos), 5 );
 
-    // Reset transformation matrix to the identity matrix
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+        // Reset transformation matrix to the identity matrix
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        break;
+        break;
+      default:
+        //rotate the canvas to draw the rotated bullet
+        ctx.translate(bullet.pos[0], bullet.pos[1]);
+        ctx.rotate(bullet.rotation);
+        ctx.translate(-(bullet.pos[0]), -(bullet.pos[1]));
+
+        ctx.fillStyle = 'yellow';
+        ctx.fillRect(bullet.pos[0], bullet.pos[1], 10, 5 );
+
+        // Reset transformation matrix to the identity matrix
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        break;
+    }
   })
 }
 
 const updateEnemies = (dt, index) => {
   enemies.forEach( (enemy) => {
     enemy.pos[0] += (10 * dt);
-    console.log(enemy.health)
     if(enemy.health <= 0){
       enemies.splice(index, 1)
     }
@@ -345,6 +363,8 @@ const updateEnemies = (dt, index) => {
 
 const updateTurrets = (dt) => {
   turrets.forEach( (turret) =>{
+
+    turret.current_reload += dt;
 
     //decide whic enemy to target
     //(for now its always enemies[0])
@@ -363,17 +383,16 @@ const updateTurrets = (dt) => {
 
     //when turret reload timer is above its reload fire
     if(turret.current_reload > turret.reload){
-      console.log('turret firing!')
-      turret.current_reload = 0;
+      turret.current_reload = 0;0
       bullets.push({
         pos: [turret.pos[0],turret.pos[1]],
         rotation: 0,
         target: turret.target,
-        damage: 1
+        damage: 1,
+        type:turret.type,
+        life:0
       })
     }
-
-    turret.current_reload += dt;
 
   })
 }
@@ -383,18 +402,37 @@ let bulletSpeed = 1;
 const updateBullets = (dt) => {
   bullets.forEach( (bullet, index) => {
 
-    //get bullet to point at enemy
-    delta_x = bullet.target.pos[0] - bullet.pos[0] 
-    delta_y = bullet.target.pos[1] - bullet.pos[1]
-    theta_radians = Math.atan2(delta_y, delta_x);
+    switch (bullet.type){
+      case 4:
+        //get bullet to point at enemy
+        delta_x = bullet.target.pos[0] - bullet.pos[0] 
+        delta_y = bullet.target.pos[1] - bullet.pos[1]
+        theta_radians = Math.atan2(delta_y, delta_x);
 
-    bullet.rotation = theta_radians;
-    bullet.pos[0] += (delta_x * bulletSpeed * dt);
-    bullet.pos[1] += (delta_y * bulletSpeed * dt);
+        bullet.rotation = theta_radians;
+        bullet.life += dt;
+        bullet.transparency = 1-bullet.life;
 
-    if(delta_x < 20 && delta_y < 20){
-      bullets.splice(index, 1)
-      bullet.target.health -= bullet.damage
+        if(bullet.transparency <= 0){
+          bullets.splice(index, 1)
+          bullet.target.health -= bullet.damage
+        }
+        break;
+      default:
+        //get bullet to point at enemy
+        delta_x = bullet.target.pos[0] - bullet.pos[0] 
+        delta_y = bullet.target.pos[1] - bullet.pos[1]
+        theta_radians = Math.atan2(delta_y, delta_x);
+
+        bullet.rotation = theta_radians;
+        bullet.pos[0] += (delta_x * bulletSpeed * dt);
+        bullet.pos[1] += (delta_y * bulletSpeed * dt);
+
+        if(delta_x < 20 && delta_y < 20){
+          bullets.splice(index, 1)
+          bullet.target.health -= bullet.damage
+        }
+        break;
     }
   })
 }
@@ -415,6 +453,19 @@ const getLevelDetails = ( level ) => {
       }
     } );
    });
+
+   //figure out the path between enemy spawn and friendly base
+
+
+   console.log(findNextBlock(enemy_base_cell))
+
+
+   console.log('friendly base: ',friendly_base__cell);
+}
+
+/* Math functions */
+const dist_between_points = (pointA,pointB) => {
+  return Math.sqrt( ((pointA[0]-pointB[0])*(pointA[0]-pointB[0])) + ((pointA[1]-pointB[1])*(pointA[1]-pointB[1])) );
 }
 
 /* game vars */
@@ -467,9 +518,9 @@ function render() {
 
   renderMap(current_level_tiles);
   renderTurretBases(current_level_turrets);
+  renderBullets();
   renderEnemies();
   renderTurrets();
-  renderBullets();
 };
 
 //canvas click
@@ -486,7 +537,8 @@ canvas.addEventListener('click', (event) => {
 
   if( selected_cell_tile == 0 && selected_cell_turret == 0 ){
     // current_level_turrets[tile_row][tile_col] = 1;
-    let turret_type = Math.floor(Math.random() * 4) + 1 ;
+    // let turret_type = Math.floor(Math.random() * 4) + 1 ;
+    let turret_type = 4 ;
     current_level_turrets[tile_row][tile_col] = turret_type;
     let chosen_turret;
     switch (turret_type){
@@ -530,9 +582,13 @@ current_level_turrets = [
   [0,0,0,0,0,0,0,0,0,0]
 ]
 getLevelDetails(current_level_tiles);
-enemies.push({
-  pos: enemy_base_pos,
-  rotation: 0,
-  type: 'maggot',
-  health: 10
-});
+window.setInterval(()=>{
+
+  enemies.push({
+    pos: JSON.parse(JSON.stringify(enemy_base_pos)),
+    rotation: 0,
+    type: 'maggot',
+    health: 10
+  });
+
+},5000)
