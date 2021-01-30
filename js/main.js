@@ -265,6 +265,13 @@ const renderMap = ( grid ) => {
     } );
    });
 
+    ctx.beginPath();
+    ctx.moveTo(path_element_arr[0][0], path_element_arr[0][1]);
+    for(a=0,b=path_element_arr.length;a<b;a++){
+      ctx.lineTo(path_element_arr[a][0], path_element_arr[a][1]);
+    }
+    ctx.stroke();
+
 }
 
 const renderTurretBases = ( grid ) => {
@@ -456,11 +463,92 @@ const getLevelDetails = ( level ) => {
 
    //figure out the path between enemy spawn and friendly base
 
+   //find next clear path section from given cell
+   const findNextBlock = (currentCell) => {
+     let next_space = null;
+     let next_space_base = false;
 
-   console.log(findNextBlock(enemy_base_cell))
+     const cell_lookup = ( coords ) => {
+      return level[coords[0]][coords[1]];
+     }
 
+     const get_cell_dir = (dir) => {
+      switch(dir){
+        case 'up':
+            return [currentCell[0] - 1, currentCell[1]]
+          break;
+        case 'right':
+            return [currentCell[0], currentCell[1] + 1]
+          break; 
+        case 'down':
+            return [currentCell[0] + 1, currentCell[1]]
+          break;
+        case 'left':
+            return [currentCell[0], currentCell[1] - 1]
+          break;
+       }
+    
+    }
 
-   console.log('friendly base: ',friendly_base__cell);
+    let cardinals = ['up','right','down','left'];
+    for(a=0,b=cardinals.length;a<b;a++){
+      if( cell_lookup( get_cell_dir(cardinals[a]) ) === 3 ){
+        next_space = get_cell_dir(cardinals[a]);
+        next_space_base = true;
+      }
+
+      if( cell_lookup( get_cell_dir(cardinals[a]) ) === 1 && path_arr.findIndex( coords => coords.toString() === get_cell_dir(cardinals[a]).toString() ) === -1 ){
+        next_space = get_cell_dir(cardinals[a]);
+      }
+    }
+
+    return [next_space, next_space_base];
+   }
+
+   let path_arr = [enemy_base_cell];
+   let searching = true;
+   let next_safe_space;
+   
+   let i=0;
+   let killer = false;
+   while(searching && !killer){
+    next_safe_space = findNextBlock(path_arr[path_arr.length-1]);
+
+    if(next_safe_space[1]){
+      searching = false;
+      path_arr.push(next_safe_space[0]);
+    }else{
+      path_arr.push(next_safe_space[0]);
+    }
+
+    if(i > 100){killer = true};
+
+    i++;
+
+   }
+
+   console.log(path_arr);
+   path_element_arr = [];
+
+   for(a=0,b=path_arr.length;a<b;a++){
+    path_element_arr.push( convert_coords_to_points(path_arr[a]) );
+   }
+
+   path_element_length = path_element_arr.length*cellWidth;
+
+   console.log(path_element_arr);
+   console.log(path_element_length);
+
+   
+}
+
+const get_point_on_path = () => {
+
+}
+
+//returns pixel position for center of provided cell
+const convert_coords_to_points = (coord) => {
+  return [(coord[1]*cellWidth)+(cellWidth/2), (coord[0]*cellHeight)+(cellHeight/2)];
 }
 
 /* Math functions */
@@ -481,6 +569,9 @@ let enemy_base_pos = [];
 let enemy_base_cell = [];
 let friendly_base_pos = [];
 let friendly_base__cell = [];
+
+let path_element_arr;
+let path_element_length;
 
 /* Canvas bits */
 
@@ -568,7 +659,7 @@ canvas.addEventListener('click', (event) => {
 
 });
 
-current_level_tiles = level_test1;
+current_level_tiles = level_test2;
 current_level_turrets = [
   [0,0,0,0,0,0,0,0,0,0],
   [0,0,0,0,0,0,0,0,0,0],
