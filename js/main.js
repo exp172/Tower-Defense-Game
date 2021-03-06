@@ -19,7 +19,7 @@ essential
 
 * each enemy has a health value and on collision bullets take away health /
 
-* enemy path finding to the goal
+* enemy path finding to the goal /
 
 * bullet are off by half their width
 
@@ -243,6 +243,19 @@ var level_test3 = [
   [0,0,0,0,0,0,0,0,0,0]
 ]
 
+var level_test4 = [
+  [0,0,0,0,0,0,0,0,0,0],
+  [0,1,1,1,1,1,1,1,1,0],
+  [0,1,0,0,0,0,0,0,1,0],
+  [0,1,0,1,1,1,1,0,1,0],
+  [0,1,0,1,0,0,1,0,1,0],
+  [0,1,0,1,0,0,1,0,1,0],
+  [0,1,0,1,0,3,1,0,1,0],
+  [0,1,0,1,0,0,0,0,1,0],
+  [0,2,0,1,1,1,1,1,1,0],
+  [0,0,0,0,0,0,0,0,0,0]
+]
+
 const renderMap = ( grid ) => {
 
   grid.forEach( (row, rowInd) => {
@@ -265,12 +278,12 @@ const renderMap = ( grid ) => {
     } );
    });
 
-    ctx.beginPath();
-    ctx.moveTo(path_element_arr[0][0], path_element_arr[0][1]);
-    for(a=0,b=path_element_arr.length;a<b;a++){
-      ctx.lineTo(path_element_arr[a][0], path_element_arr[a][1]);
-    }
-    ctx.stroke();
+    // ctx.beginPath();
+    // ctx.moveTo(path_element_arr[0][0], path_element_arr[0][1]);
+    // for(a=0,b=path_element_arr.length;a<b;a++){
+    //   ctx.lineTo(path_element_arr[a][0], path_element_arr[a][1]);
+    // }
+    // ctx.stroke();
 
 }
 
@@ -342,7 +355,6 @@ const renderBullets = () => {
         // Reset transformation matrix to the identity matrix
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         break;
-        break;
       default:
         //rotate the canvas to draw the rotated bullet
         ctx.translate(bullet.pos[0], bullet.pos[1]);
@@ -360,10 +372,31 @@ const renderBullets = () => {
 }
 
 const updateEnemies = (dt, index) => {
-  enemies.forEach( (enemy) => {
-    enemy.pos[0] += (10 * dt);
-    if(enemy.health <= 0){
-      enemies.splice(index, 1)
+  enemies.forEach( (enemy,i) => {
+
+    enemy.distance += (10*dt);
+
+    let enemy_pos_calc = enemy.distance/(path_element_length/(path_element_length/cellWidth));
+
+    //enemy reached the base
+    if(enemy.distance >= path_element_length){
+      enemies.splice(i, 1)
+    }else{
+
+      var percOfCellToMove = (enemy_pos_calc-Math.floor(enemy_pos_calc))*100;
+      var startX = path_element_arr[Math.floor(enemy_pos_calc)][0];
+      var startY = path_element_arr[Math.floor(enemy_pos_calc)][1];
+      var endX = path_element_arr[Math.floor(enemy_pos_calc)+1][0]
+      var endY = path_element_arr[Math.floor(enemy_pos_calc)+1][1];
+      var moveX = ((endX - startX)/100) * percOfCellToMove;
+      var moveY = ((endY - startY)/100) * percOfCellToMove;
+
+      enemy.pos[0] = startX + moveX;
+      enemy.pos[1] = startY + moveY;
+      // enemy.pos[0] += (10 * dt);
+      if(enemy.health <= 0){
+        enemies.splice(i, 1);
+      }
     }
   })
 }
@@ -534,11 +567,7 @@ const getLevelDetails = ( level ) => {
     path_element_arr.push( convert_coords_to_points(path_arr[a]) );
    }
 
-   path_element_length = path_element_arr.length*cellWidth;
-
-   console.log(path_element_arr);
-   console.log(path_element_length);
-
+   path_element_length = (path_element_arr.length-1)*cellWidth;
    
 }
 
@@ -659,7 +688,7 @@ canvas.addEventListener('click', (event) => {
 
 });
 
-current_level_tiles = level_test2;
+current_level_tiles = level_test1;
 current_level_turrets = [
   [0,0,0,0,0,0,0,0,0,0],
   [0,0,0,0,0,0,0,0,0,0],
@@ -678,6 +707,7 @@ window.setInterval(()=>{
   enemies.push({
     pos: JSON.parse(JSON.stringify(enemy_base_pos)),
     rotation: 0,
+    distance: 0,
     type: 'maggot',
     health: 10
   });
